@@ -42,7 +42,7 @@ public class Enemy : MonoBehaviour
         {
             float angle = c * angleIncrement;
             Vector3 direction = Quaternion.Euler(0, angle, 0) * enemy.forward;
-            //Debug.DrawRay(enemy.position, direction, Color.blue, detectionRadius);
+            Debug.DrawRay(enemy.position, direction, Color.blue, detectionRadius);
 
             RaycastHit hit;
             if (Physics.Raycast(enemy.position, direction, out hit, detectionRadius, raycastMask))

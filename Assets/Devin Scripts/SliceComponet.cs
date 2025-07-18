@@ -27,13 +27,14 @@ public class SliceComponet : MonoBehaviour
         {
             GameObject target = hit.transform.gameObject;
             Color colorSlice = new Color(191, 105, 38);
+            Debug.Log("You have hit something");
             Debug.DrawLine(player.position, target.transform.position, colorSlice, 2000f);
 
 
             if (target.GetComponent<SkinnedMeshRenderer>() != null)
             {
+                Debug.Log("Clanka");
                 dismemberment(target);
-
             }
             else
             {
@@ -52,7 +53,7 @@ public class SliceComponet : MonoBehaviour
         planeNormal.Normalize();
 
         SlicedHull hull = target.Slice(endSlicePoint.position, planeNormal);
-        Debug.Log(hull);
+        Debug.Log("You have hit an object");
 
 
         Enemy nived = target.GetComponent<Enemy>();
@@ -91,7 +92,7 @@ public class SliceComponet : MonoBehaviour
 
     public void dismemberment(GameObject bp)
     {
-        //Debug.Log(bp);
+        Debug.Log(bp.name);
         //Debug.Log(bp.transform);
         //Debug.Log(bp.transform.parent);
         //bp.transform.parent = null;
@@ -101,13 +102,16 @@ public class SliceComponet : MonoBehaviour
 
 
         GameObject bp2 = new GameObject(bp.name + "BUT BETTER");
+
         bp2.AddComponent<MeshFilter>();
         MeshFilter bp2mesh = bp2.GetComponent<MeshFilter>();
+
         bp2.AddComponent<MeshRenderer>();
         MeshRenderer mesren = bp2.GetComponent<MeshRenderer>();
 
-        //bp2.AddComponent<BoxCollider>();
+        bp2.AddComponent<BoxCollider>();
         BoxCollider boco = bp2.GetComponent<BoxCollider>();
+
         mesren.material = bp.GetComponent<SkinnedMeshRenderer>().material;
 
         bp2mesh.mesh = bp.GetComponent<SkinnedMeshRenderer>().sharedMesh;
