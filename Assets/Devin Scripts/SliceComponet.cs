@@ -1,6 +1,7 @@
 using UnityEngine;
 using EzySlice;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using Unity.XR.CoreUtils;
 
 public class SliceComponet : MonoBehaviour
 {
@@ -28,12 +29,11 @@ public class SliceComponet : MonoBehaviour
             GameObject target = hit.transform.gameObject;
             Color colorSlice = new Color(191, 105, 38);
             Debug.Log("You have hit something");
-            Debug.DrawLine(player.position, target.transform.position, colorSlice, 2000f);
-
+            
 
             if (target.GetComponent<SkinnedMeshRenderer>() != null)
             {
-                Debug.Log("Clanka");
+                
                 dismemberment(target);
             }
             else
@@ -92,15 +92,11 @@ public class SliceComponet : MonoBehaviour
 
     public void dismemberment(GameObject bp)
     {
-        Debug.Log(bp.name);
-        //Debug.Log(bp.transform);
-        //Debug.Log(bp.transform.parent);
-        //bp.transform.parent = null;
-        //Debug.Log("LIMBS SHOULD BE FLYING");
-        //setupSlicedComponent(bp);
 
+        Destroy(bp.GetNamedChild("chicken butt"));
+    }
 
-
+    /*
         GameObject bp2 = new GameObject(bp.name + "BUT BETTER");
 
         bp2.AddComponent<MeshFilter>();
@@ -146,7 +142,5 @@ public class SliceComponet : MonoBehaviour
         //ketwo.Play();
 
         Destroy(bp);
-
-    }
-
+    */
 }
