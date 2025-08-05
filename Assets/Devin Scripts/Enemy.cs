@@ -19,6 +19,9 @@ public class Enemy : MonoBehaviour
     public Animator anima;
     public double PlayerBubble;
 
+
+    
+
     // Start is called before the first frame update
     // Idea for later, If enemy has gotten hit a couple times, layer = sliceable
     void Start()
@@ -33,6 +36,7 @@ public class Enemy : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+
         // Calculate angle between rays
         float angleIncrement = 360f / numRays;
         double disbetwP = Vector3.Distance(enemy.position, Player.position);
@@ -92,6 +96,8 @@ public class Enemy : MonoBehaviour
         }
 
     }
+
+
     public void isAnima(Animator anim, bool tf)
     {
         if (anim != null)

@@ -2,6 +2,9 @@ using UnityEngine;
 using EzySlice;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using Unity.XR.CoreUtils;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 public class SliceComponet : MonoBehaviour
 {
@@ -14,10 +17,10 @@ public class SliceComponet : MonoBehaviour
     public Material CrossSectionMaterial;
     public float cutForce;
     public Transform player;
-    public ParticleSystem ketchup;
 
-    public float dismembermentThreshold; 
+    public float dismembermentThreshold;
 
+    public ParticleSystem sparks;
     // Start is called before the first frame update
     void Start()
     {
@@ -49,8 +52,8 @@ public class SliceComponet : MonoBehaviour
 
             // if (other.GetComponent<SkinnedMeshRenderer>() != null)
             // {
-                dismemberment(other.gameObject);
-                Debug.Log(other.gameObject.name + " should be dismembered");
+            dismemberment(other.gameObject);
+            Debug.Log(other.gameObject.name + " should be dismembered");
             // }
             // else
             // {
@@ -60,7 +63,40 @@ public class SliceComponet : MonoBehaviour
         }
     }
 
-        private bool IsOnSliceableLayer(GameObject obj)
+    public void dismemberment(GameObject bp)
+    {
+
+        if (bp.transform.parent == null)
+        {
+            Debug.Log("No parent found, cannot dismember");
+            return;
+        }
+        else
+        {
+            Debug.Log("Parent found, dismembering");
+
+            ParticleSystem newSparks = Instantiate(sparks, bp.transform.parent.position, bp.transform.parent.rotation);
+            
+            // Enable looping
+            var main = newSparks.main;
+            main.loop = true;
+            
+            newSparks.Play();
+            
+            // Stop and destroy after specified duration
+            Destroy(newSparks.gameObject, 5f);
+            
+            Destroy(bp.transform.parent.gameObject);
+
+        }
+
+    }
+
+
+
+
+
+    private bool IsOnSliceableLayer(GameObject obj)
     {
         return (sliceablelayer.value & (1 << obj.layer)) != 0;
     }
@@ -110,21 +146,6 @@ public class SliceComponet : MonoBehaviour
         rb.AddExplosionForce(cutForce, slicedObject.transform.position, 1);
     }
 
-    public void dismemberment(GameObject bp)
-    {
 
-        if (bp.transform.parent == null)
-        {
-            Debug.Log("No parent found, cannot dismember");
-            return;
-        }
-        else
-        {
-            Debug.Log("Parent found, dismembering");
-            Destroy(bp.transform.parent.gameObject);
-
-        }
-
-    }
 
 }
