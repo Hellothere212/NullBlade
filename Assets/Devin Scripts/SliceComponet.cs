@@ -18,7 +18,6 @@ public class SliceComponet : MonoBehaviour
     public float cutForce;
     public Transform player;
 
-    public float dismembermentThreshold;
 
     public ParticleSystem sparks;
     // Start is called before the first frame update
@@ -40,26 +39,16 @@ public class SliceComponet : MonoBehaviour
         if (IsOnSliceableLayer(other.gameObject))
         {
             Debug.Log("you have hit something sliceable");
-            // Optional: Check if sword is moving fast enough to slice
-            // Vector3 velocity = velocityestimator.GetVelocityEstimate();
-            // float speed = velocity.magnitude;
 
-            // if (speed > dismembermentThreshold) // Adjust this threshold as needed
-            // {
+        
             Debug.Log("Sword collided with sliceable object: " + other.gameObject.name);
             Debug.Log("Target Layer: " + other.gameObject.layer);
             // Debug.Log("Sword speed: " + speed);
 
-            // if (other.GetComponent<SkinnedMeshRenderer>() != null)
-            // {
+           
             dismemberment(other.gameObject);
             Debug.Log(other.gameObject.name + " should be dismembered");
-            // }
-            // else
-            // {
-            //     Slice(other.gameObject);
-            // }
-            // }
+       
         }
     }
 
@@ -75,8 +64,15 @@ public class SliceComponet : MonoBehaviour
         {
             Debug.Log("Parent found, dismembering");
 
-            ParticleSystem newSparks = Instantiate(sparks, bp.transform.parent.position, bp.transform.parent.rotation);
+            // Add 90 degrees rotation to the Y axis
+            Quaternion sparksRotation = getSparksRotation(bp.transform.parent.name);
+            // * Quaternion.Euler(90, 0, 0);
             
+            ParticleSystem newSparks =
+            Instantiate(sparks, bp.transform.parent.position, sparksRotation);
+
+           newSparks.transform.SetParent(bp.transform.parent.transform.parent.transform.parent,true);
+           
             // Enable looping
             var main = newSparks.main;
             main.loop = true;
@@ -84,7 +80,7 @@ public class SliceComponet : MonoBehaviour
             newSparks.Play();
             
             // Stop and destroy after specified duration
-            Destroy(newSparks.gameObject, 5f);
+            Destroy(newSparks.gameObject, 10f);
             
             Destroy(bp.transform.parent.gameObject);
 
@@ -93,6 +89,25 @@ public class SliceComponet : MonoBehaviour
     }
 
 
+    public Quaternion getSparksRotation(String BPname)
+    {
+        switch (BPname)
+        {
+            case "Neck":
+                return Quaternion.Euler(168.752f, -35.54102f, -7.932983f);
+            case "Shoulder1.L":
+                return Quaternion.Euler(317.674622f, 90.207756f, 89.6203537f);
+            case "Shoulder1.R":
+                return Quaternion.Euler(324.003723f, 198.84523f, 139.661102f);
+            case "Leg0.L":
+                return Quaternion.Euler(26.5641155f, 159.09317f, 170.650665f);
+            case "Leg0.R":
+                return Quaternion.Euler(5.8005619f, 158.534683f, 197.396652f);
+
+            default:
+                return Quaternion.Euler(0, 0, 0);
+        }
+    }
 
 
 
