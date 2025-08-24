@@ -27,13 +27,18 @@ public class Enemy : MonoBehaviour
 
     public float detectionAngle;      // Angle spread for detection rays
 
-    public LineRenderer scanner;
 
-    public Material scannerMaterial;
 
-    public float angleOffset; // degrees to offset the entire fan, e.g. 15 degrees to the right
-
+    public float angleOffset; 
+    public float sweepSpeed = 1f; // degrees per second sweep speed (controls how fast the tilt oscillates)
     public float lineHeight; // adjust in Inspector
+    [Header("Vision Mesh")]
+    public Material visionMaterial; // material for filled cone (use Unlit/Transparent)
+    private GameObject visionMeshObj;
+    private Mesh visionMesh;
+    private MeshFilter visionMeshFilter;
+    private MeshRenderer visionMeshRenderer;
+    public int meshSegments = 32; // fallback segment count when numRays is low
 
     // Start is called before the first frame update
     void Start()
@@ -43,17 +48,30 @@ public class Enemy : MonoBehaviour
         ScanPoint = transform; // Cache this enemy's transform
         enemy = ScanPoint;
 
-        //setting up scanner
-        scanner.positionCount = 0;
-        scanner.material = scannerMaterial;
-        // Make sure the LineRenderer uses world-space coordinates so positions line up with physics
-        scanner.useWorldSpace = true;
 
+        // Create vision mesh object as a child so it follows the enemy
+        visionMeshObj = new GameObject("VisionMesh");
+        visionMeshObj.transform.SetParent(enemy, false);
+        visionMeshObj.transform.localPosition = enemy.up * lineHeight; // initial offset; Update will correct it
+        visionMeshObj.transform.localRotation = Quaternion.identity;
+
+        visionMeshFilter = visionMeshObj.AddComponent<MeshFilter>();
+        visionMeshRenderer = visionMeshObj.AddComponent<MeshRenderer>();
+        visionMesh = new Mesh();
+        visionMesh.name = "VisionConeMesh";
+        visionMeshFilter.mesh = visionMesh;
+        if (visionMaterial != null)
+        {
+            visionMeshRenderer.material = visionMaterial;
+            visionMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            visionMeshRenderer.receiveShadows = false;
+        }
     }
 
     // Update is called once per frame
     void Update()
     {
+
         float angleIncrement = detectionAngle / (numRays - 1); // Changed to (numRays - 1) for even distribution
 
         // Use the enemy's local up so the cone follows enemy orientation (handles tilted enemies)
@@ -62,9 +80,6 @@ public class Enemy : MonoBehaviour
         // Calculate distance between enemy and player from the same origin
         double disbetwP = Vector3.Distance(origin, Player.position);
 
-        // Make room for arc points plus the origin duplicated at the end to close the fan
-        scanner.positionCount = numRays + 2;
-        scanner.SetPosition(0, origin);
 
         // Cast multiple rays in a fan pattern centered on enemy's forward direction
         for (int c = 0; c < numRays; c++)
@@ -78,7 +93,7 @@ public class Enemy : MonoBehaviour
             Debug.DrawRay(origin, direction * detectionRadius, Color.blue, 0.1f);
 
             Vector3 endPoint = origin + direction * detectionRadius;
-            scanner.SetPosition(c + 1, endPoint);
+
 
             // Use origin when casting rays so what the player sees matches the physics
             RaycastHit hit;
@@ -102,6 +117,7 @@ public class Enemy : MonoBehaviour
                         Debug.Log("TOO CLOSE TO PLAYER - stopping movement");
                         isAnima(anima, false); // Stop movement animation
                     }
+
                     // Check if we have clear line of sight AND maintain minimum distance
                     else if (Physics.Linecast(origin, targetPosition, raycastMask) && disbetwP > PlayerBubble)
                     {
@@ -130,12 +146,74 @@ public class Enemy : MonoBehaviour
             else
             {
                 // No objects detected in this ray direction
+                Debug.Log("No objects detected - stopping movement");
                 isAnima(anima, false); // Stop movement animation
             }
         }
-        // Duplicate the origin at the final index to close the LineRenderer fan
-        Vector3 straightray = Quaternion.AngleAxis(angleOffset, Vector3.zero) * origin;
-        scanner.SetPosition(numRays + 1, straightray);
+
+        // Update / rebuild the filled vision mesh (triangle fan)
+        UpdateVisionMesh(origin);
+    }
+
+    // Rebuilds the filled cone mesh so the interior is visible
+    void UpdateVisionMesh(Vector3 originWorld)
+    {
+        if (visionMesh == null) return;
+
+        int segments = Mathf.Max(3, numRays);
+        int rimCount = segments;
+
+        // center vertex + rimCount+1 (closing) vertices
+        Vector3[] vertices = new Vector3[1 + rimCount + 1];
+        Vector2[] uvs = new Vector2[vertices.Length];
+        int[] triangles = new int[rimCount * 3];
+
+        // make sure visionMeshObj local position matches origin
+        visionMeshObj.transform.localPosition = enemy.InverseTransformPoint(originWorld);
+
+        vertices[0] = Vector3.zero; // center at local origin
+        uvs[0] = new Vector2(0.5f, 0.5f);
+
+        // compute a flattened forward in world space, then pitch it down using tiltAngle
+        Vector3 flatForwardWorld = Vector3.ProjectOnPlane(enemy.forward, enemy.up).normalized;
+        if (flatForwardWorld.sqrMagnitude < 0.0001f) flatForwardWorld = enemy.forward.normalized;
+
+        // pitch the forward vector down around the enemy's right axis
+        Vector3 pitchedForwardWorld = Quaternion.AngleAxis(-angleOffset, enemy.right) * flatForwardWorld;
+
+        // convert pitched forward into the visionMeshObj local space
+        Vector3 pitchedForwardLocal = visionMeshObj.transform.InverseTransformDirection(pitchedForwardWorld).normalized;
+
+        float halfAngle = detectionAngle * 0.5f;
+        float angleStep = detectionAngle / rimCount;
+
+        for (int i = 0; i <= rimCount; i++)
+        {
+            float a = -halfAngle + i * angleStep;
+            // rotate around the local up axis to sweep the rim (visionMeshObj local up aligns with enemy.up)
+            Vector3 dirLocal = Quaternion.AngleAxis(a, Vector3.up) * pitchedForwardLocal;
+            Vector3 pointLocal = dirLocal.normalized * detectionRadius;
+            vertices[i + 1] = pointLocal;
+
+            // simple UV mapping
+            uvs[i + 1] = new Vector2((dirLocal.x + 1f) * 0.5f, (dirLocal.z + 1f) * 0.5f);
+        }
+
+        // build triangles (fan from center)
+        for (int i = 0; i < rimCount; i++)
+        {
+            int triIndex = i * 3;
+            triangles[triIndex + 0] = 0;
+            triangles[triIndex + 1] = i + 1;
+            triangles[triIndex + 2] = i + 2;
+        }
+
+        visionMesh.Clear();
+        visionMesh.vertices = vertices;
+        visionMesh.uv = uvs;
+        visionMesh.triangles = triangles;
+        visionMesh.RecalculateNormals();
+        visionMesh.RecalculateBounds();
     }
 
 
