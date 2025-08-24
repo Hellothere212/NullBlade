@@ -12,19 +12,24 @@ public class Enemy : MonoBehaviour
     public int movementSpeed;           // How fast the enemy moves toward player
     public float detectionRadius;       // How far the enemy can "see" 
     public int numRays;                 // Number of detection rays cast in a semicircle
-    
+
     // Layer masks for different detection purposes
     public LayerMask raycastMask;       // Layers the enemy can detect (usually includes Player layer)
     public LayerMask notPlayerMask;     // Layers that block movement (walls, obstacles, NOT player)
-    
+
     // Enemy stats and state
-    public int nivedh;                  // Enemy health points
-    public bool isSee;                  // Whether enemy currently sees the player
+    // public int nivedh;                  // Enemy health points
+    bool isSee;                  // Whether enemy currently sees the player
     public Animator anima;              // Animator for enemy movement animations
     public double PlayerBubble;         // Minimum distance to maintain from player (personal space)
 
     public float detectionAngle;      // Angle spread for detection rays
 
+    public LineRenderer scanner;
+
+    public Material scannerMaterial;
+
+    public float lineHeight; // adjust in Inspector
 
     // Start is called before the first frame update
     void Start()
@@ -32,6 +37,13 @@ public class Enemy : MonoBehaviour
         // Find and cache the player GameObject by tag
         Player = GameObject.FindWithTag("Player").transform;
         enemy = transform; // Cache this enemy's transform
+
+        //setting up scanner
+        scanner.positionCount = 0;
+        scanner.material = scannerMaterial;
+        // Make sure the LineRenderer uses world-space coordinates so positions line up with physics
+        scanner.useWorldSpace = true;
+
     }
 
     // Update is called once per frame
@@ -39,24 +51,38 @@ public class Enemy : MonoBehaviour
     {
         float angleIncrement = detectionAngle / (numRays - 1); // Changed to (numRays - 1) for even distribution
 
-        // Calculate distance between enemy and player
-        double disbetwP = Vector3.Distance(enemy.position, Player.position);
+        // Use the same origin point for visualization and physics so the cone is straight
+        //        Vector3 origin = transform.position + Vector3.up * 1;
+        //
+        //        // Calculate distance between enemy and player from the same origin
+        //        double disbetwP = Vector3.Distance(origin, Player.position);
+        // Use the enemy's local up so the cone follows enemy orientation (handles tilted enemies)
+        Vector3 origin = enemy.position + enemy.up * lineHeight;
+
+        // Calculate distance between enemy and player from the same origin
+        double disbetwP = Vector3.Distance(origin, Player.position);
+
+        // Make room for arc points plus the origin duplicated at the end to close the fan
+        scanner.positionCount = numRays + 2;
+        scanner.SetPosition(0, origin);
 
         // Cast multiple rays in a fan pattern centered on enemy's forward direction
         for (int c = 0; c < numRays; c++)
         {
             // Calculate angle for this ray - centered around forward direction
             float angle = -detectionAngle / 2 + (c * angleIncrement); // Start from -half angle, go to +half angle
+
             Vector3 direction = Quaternion.Euler(0, angle, 0) * enemy.forward;
-            
-            // Visualize the ray in Scene view (blue lines) - fixed parameters
-            Debug.DrawRay(enemy.position, direction * detectionRadius, Color.blue, 0.1f);
 
-            Debug.Log("disbetwP: " + disbetwP); 
+            // Visualize the ray in Scene view (blue lines) using the same origin
+            Debug.DrawRay(origin, direction * detectionRadius, Color.blue, 0.1f);
 
+            Vector3 endPoint = origin + direction * detectionRadius;
+            scanner.SetPosition(c + 1, endPoint);
+
+            // Use origin when casting rays so what the player sees matches the physics
             RaycastHit hit;
-            // Cast ray to detect objects within detection radius
-            if (Physics.Raycast(enemy.position, direction, out hit, detectionRadius, raycastMask))
+            if (Physics.Raycast(origin, direction, out hit, detectionRadius, raycastMask))
             {
                 // Check if we hit the player
                 if (hit.collider.CompareTag("Player"))
@@ -65,14 +91,14 @@ public class Enemy : MonoBehaviour
 
                     Vector3 targetPosition = Player.position;
 
-                    // Check if there are obstacles blocking the path to player
-                    if (Physics.Linecast(enemy.position, targetPosition, notPlayerMask))
+                    // Check if there are obstacles blocking the path to player from the same origin
+                    if (Physics.Linecast(origin, targetPosition, notPlayerMask))
                     {
                         Debug.Log("PATH BLOCKED - Cannot move to player");
                         isAnima(anima, false); // Stop movement animation
                     }
                     // Check if we have clear line of sight AND maintain minimum distance
-                    else if (Physics.Linecast(enemy.position, targetPosition, raycastMask) && disbetwP > PlayerBubble)
+                    else if (Physics.Linecast(origin, targetPosition, raycastMask) && disbetwP > PlayerBubble)
                     {
                         Debug.Log("MOVING TOWARD PLAYER");
 
@@ -80,11 +106,11 @@ public class Enemy : MonoBehaviour
                         isSee = true;
 
                         // Move toward player at specified speed
-                        Vector3 newPosition = Vector3.MoveTowards(enemy.position, targetPosition, movementSpeed * Time.deltaTime);
+                        Vector3 newPosition = this.gameObject.transform.parent.TransformPoint(Vector3.MoveTowards(enemy.position, targetPosition, movementSpeed * Time.deltaTime));
                         enemy.position = newPosition;
                     }
                     else
-                    { 
+                    {
                         Debug.Log("TOO CLOSE TO PLAYER - stopping movement");
                     }
 
@@ -102,6 +128,9 @@ public class Enemy : MonoBehaviour
                 isAnima(anima, false); // Stop movement animation
             }
         }
+        // Duplicate the origin at the final index to close the LineRenderer fan
+
+        scanner.SetPosition(numRays + 1, origin);
     }
 
 

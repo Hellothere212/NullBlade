@@ -127,16 +127,16 @@ public class SliceComponet : MonoBehaviour
         Debug.Log("You have hit an object");
 
 
-        Enemy nived = target.GetComponent<Enemy>();
+        // Enemy nived = target.GetComponent<Enemy>();
 
-        if (nived != null)
-        {
-            nived.nivedh -= 1;
-            if (nived.nivedh > 0)
-            {
-                return;
-            }
-        }
+        // if (nived != null)
+        // {
+        //     nived.nivedh -= 1;
+        //     if (nived.nivedh > 0)
+        //     {
+        //         return;
+        //     }
+        // }
 
         if (hull != null)
         {
