@@ -637,9 +637,12 @@ MonoBehaviour:
   anima: {fileID: 139660130}
   PlayerBubble: 1.75
   detectionAngle: 45
+  scanner: {fileID: 0}
   angleRange: -45
+  sweepSpeed: 0.5
   lineHeight: 1.8
-  visionMaterial: {fileID: 2100000, guid: b5a38786deda84e1e815cd5dc12860d5, type: 2}
+  visionMaterialDefault: {fileID: 2100000, guid: b5a38786deda84e1e815cd5dc12860d5, type: 2}
+  visionMaterialDetected: {fileID: 2100000, guid: b9abd849df31740ba842e8df631fce73, type: 2}
   meshSegments: 32
 --- !u!4 &145187129 stripped
 Transform:

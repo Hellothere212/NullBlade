@@ -27,13 +27,17 @@ public class Enemy : MonoBehaviour
 
     public float detectionAngle;      // Angle spread for detection rays
 
+    public UnityEngine.LineRenderer scanner; // optional LineRenderer visual to toggle on/off
 
-
-    public float angleOffset; 
+    public float angleRange;
+    private float angleOffset;
     public float sweepSpeed = 1f; // degrees per second sweep speed (controls how fast the tilt oscillates)
     public float lineHeight; // adjust in Inspector
+
     [Header("Vision Mesh")]
-    public Material visionMaterial; // material for filled cone (use Unlit/Transparent)
+    public Material visionMaterialDefault; // material for filled cone (use Unlit/Transparent)
+    public Material visionMaterialDetected; // material for filled cone when player is detected
+
     private GameObject visionMeshObj;
     private Mesh visionMesh;
     private MeshFilter visionMeshFilter;
@@ -60,9 +64,9 @@ public class Enemy : MonoBehaviour
         visionMesh = new Mesh();
         visionMesh.name = "VisionConeMesh";
         visionMeshFilter.mesh = visionMesh;
-        if (visionMaterial != null)
+        if (visionMaterialDefault != null)
         {
-            visionMeshRenderer.material = visionMaterial;
+            visionMeshRenderer.material = visionMaterialDefault;
             visionMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             visionMeshRenderer.receiveShadows = false;
         }
@@ -71,6 +75,8 @@ public class Enemy : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // maps sin ∈ [-1,1] → [-1,0], then scale
+        angleOffset = -((Mathf.Sin(Time.time * sweepSpeed * Mathf.PI * 2f) - 1f) * 0.5f) * (angleRange * 0.5f);
 
         float angleIncrement = detectionAngle / (numRays - 1); // Changed to (numRays - 1) for even distribution
 
@@ -80,6 +86,20 @@ public class Enemy : MonoBehaviour
         // Calculate distance between enemy and player from the same origin
         double disbetwP = Vector3.Distance(origin, Player.position);
 
+        // If player is too close, turn off the scanner visuals
+        bool tooClose = disbetwP <= PlayerBubble;
+        if (tooClose)
+        {
+            if (visionMeshRenderer != null) visionMeshRenderer.enabled = false;
+            if (scanner != null) scanner.enabled = false;
+        }
+        else
+        {
+            // enable visuals when not too close (other logic may still disable later)
+            if (visionMeshRenderer != null) visionMeshRenderer.enabled = true;
+            if (scanner != null) scanner.enabled = true;
+            // keep ScanOn true by default; specific detections can flip it
+        }
 
         // Cast multiple rays in a fan pattern centered on enemy's forward direction
         for (int c = 0; c < numRays; c++)
@@ -122,6 +142,7 @@ public class Enemy : MonoBehaviour
                     else if (Physics.Linecast(origin, targetPosition, raycastMask) && disbetwP > PlayerBubble)
                     {
                         Debug.Log("MOVING TOWARD PLAYER");
+                        visionMeshRenderer.material = visionMaterialDetected;
 
                         isAnima(anima, true); // Start movement animation
                         isSee = true;
@@ -133,6 +154,7 @@ public class Enemy : MonoBehaviour
                     else
                     {
                         Debug.Log("TOO CLOSE TO PLAYER - stopping movement");
+                        isAnima(anima, false); // Stop movement animation
                     }
 
                     break; // Stop checking other rays once player is found
@@ -141,6 +163,7 @@ public class Enemy : MonoBehaviour
                 {
                     Debug.Log("Detected non-player object - stopping movement");
                     isAnima(anima, false); // Stop movement animation
+                    visionMeshRenderer.material = visionMaterialDefault;
                 }
             }
             else
@@ -148,11 +171,14 @@ public class Enemy : MonoBehaviour
                 // No objects detected in this ray direction
                 Debug.Log("No objects detected - stopping movement");
                 isAnima(anima, false); // Stop movement animation
+                visionMeshRenderer.material = visionMaterialDefault;
             }
         }
 
         // Update / rebuild the filled vision mesh (triangle fan)
-        UpdateVisionMesh(origin);
+      
+            UpdateVisionMesh(origin);
+        
     }
 
     // Rebuilds the filled cone mesh so the interior is visible
@@ -225,5 +251,5 @@ public class Enemy : MonoBehaviour
             anim.SetBool("IsSeeSee", tf); // Toggle movement animation parameter
         }
     }
-    
+
 }
