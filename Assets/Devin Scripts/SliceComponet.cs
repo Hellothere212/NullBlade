@@ -1,6 +1,10 @@
 using UnityEngine;
 using EzySlice;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using Unity.XR.CoreUtils;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 public class SliceComponet : MonoBehaviour
 {
@@ -8,11 +12,14 @@ public class SliceComponet : MonoBehaviour
     public Transform endSlicePoint;
     public VelocityEstimator velocityestimator;
     public LayerMask sliceablelayer;
-    public GameObject target;
+
+    GameObject target;
     public Material CrossSectionMaterial;
     public float cutForce;
     public Transform player;
-    public ParticleSystem ketchup;
+
+
+    public ParticleSystem sparks;
     // Start is called before the first frame update
     void Start()
     {
@@ -22,26 +29,91 @@ public class SliceComponet : MonoBehaviour
     // Update is called once per frame
     public void FixedUpdate()
     {
-        bool hasHit = Physics.Linecast(startSlicePoint.position, endSlicePoint.position, out RaycastHit hit, sliceablelayer);
-        if (hasHit)
+    }
+
+    // This method will be called when the sword collides with a trigger collider
+    void OnTriggerEnter(Collider other)
+    {
+        Debug.Log("Sword collided");
+        // Check if the collided object is on the sliceable layer
+        if (IsOnSliceableLayer(other.gameObject))
         {
-            GameObject target = hit.transform.gameObject;
-            Color colorSlice = new Color(191, 105, 38);
-            Debug.DrawLine(player.position, target.transform.position, colorSlice, 2000f);
+            Debug.Log("you have hit something sliceable");
 
+        
+            Debug.Log("Sword collided with sliceable object: " + other.gameObject.name);
+            Debug.Log("Target Layer: " + other.gameObject.layer);
+            // Debug.Log("Sword speed: " + speed);
 
-            if (target.GetComponent<SkinnedMeshRenderer>() != null)
-            {
-                dismemberment(target);
+           
+            dismemberment(other.gameObject);
+            Debug.Log(other.gameObject.name + " should be dismembered");
+       
+        }
+    }
 
-            }
-            else
-            {
-                Slice(target);
-            }
+    public void dismemberment(GameObject bp)
+    {
+
+        if (bp.transform.parent == null)
+        {
+            Debug.Log("No parent found, cannot dismember");
+            return;
+        }
+        else
+        {
+            Debug.Log("Parent found, dismembering");
+
+            // Add 90 degrees rotation to the Y axis
+            Quaternion sparksRotation = getSparksRotation(bp.transform.parent.name);
+            // * Quaternion.Euler(90, 0, 0);
+            
+            ParticleSystem newSparks =
+            Instantiate(sparks, bp.transform.parent.position, sparksRotation);
+
+           newSparks.transform.SetParent(bp.transform.parent.transform.parent.transform.parent,true);
+           
+            // Enable looping
+            var main = newSparks.main;
+            main.loop = true;
+            
+            newSparks.Play();
+            
+            // Stop and destroy after specified duration
+            Destroy(newSparks.gameObject, 10f);
+            
+            Destroy(bp.transform.parent.gameObject);
+
         }
 
+    }
 
+
+    public Quaternion getSparksRotation(String BPname)
+    {
+        switch (BPname)
+        {
+            case "Neck":
+                return Quaternion.Euler(168.752f, -35.54102f, -7.932983f);
+            case "Shoulder1.L":
+                return Quaternion.Euler(317.674622f, 90.207756f, 89.6203537f);
+            case "Shoulder1.R":
+                return Quaternion.Euler(324.003723f, 198.84523f, 139.661102f);
+            case "Leg0.L":
+                return Quaternion.Euler(26.5641155f, 159.09317f, 170.650665f);
+            case "Leg0.R":
+                return Quaternion.Euler(5.8005619f, 158.534683f, 197.396652f);
+
+            default:
+                return Quaternion.Euler(0, 0, 0);
+        }
+    }
+
+
+
+    private bool IsOnSliceableLayer(GameObject obj)
+    {
+        return (sliceablelayer.value & (1 << obj.layer)) != 0;
     }
     public void Slice(GameObject target)
     {
@@ -52,19 +124,19 @@ public class SliceComponet : MonoBehaviour
         planeNormal.Normalize();
 
         SlicedHull hull = target.Slice(endSlicePoint.position, planeNormal);
-        Debug.Log(hull);
+        Debug.Log("You have hit an object");
 
 
-        Enemy nived = target.GetComponent<Enemy>();
+        // Enemy nived = target.GetComponent<Enemy>();
 
-        if (nived != null)
-        {
-            nived.nivedh -= 1;
-            if (nived.nivedh > 0)
-            {
-                return;
-            }
-        }
+        // if (nived != null)
+        // {
+        //     nived.nivedh -= 1;
+        //     if (nived.nivedh > 0)
+        //     {
+        //         return;
+        //     }
+        // }
 
         if (hull != null)
         {
@@ -89,60 +161,6 @@ public class SliceComponet : MonoBehaviour
         rb.AddExplosionForce(cutForce, slicedObject.transform.position, 1);
     }
 
-    public void dismemberment(GameObject bp)
-    {
-        //Debug.Log(bp);
-        //Debug.Log(bp.transform);
-        //Debug.Log(bp.transform.parent);
-        //bp.transform.parent = null;
-        //Debug.Log("LIMBS SHOULD BE FLYING");
-        //setupSlicedComponent(bp);
 
-
-
-        GameObject bp2 = new GameObject(bp.name + "BUT BETTER");
-        bp2.AddComponent<MeshFilter>();
-        MeshFilter bp2mesh = bp2.GetComponent<MeshFilter>();
-        bp2.AddComponent<MeshRenderer>();
-        MeshRenderer mesren = bp2.GetComponent<MeshRenderer>();
-
-        //bp2.AddComponent<BoxCollider>();
-        BoxCollider boco = bp2.GetComponent<BoxCollider>();
-        mesren.material = bp.GetComponent<SkinnedMeshRenderer>().material;
-
-        bp2mesh.mesh = bp.GetComponent<SkinnedMeshRenderer>().sharedMesh;
-
-
-
-        Vector3 bpVec = bp.transform.position;
-        Quaternion bpRot = bp.transform.localRotation;
-        bp2.transform.position = bp.transform.position;
-        bp2.transform.rotation = bp.transform.rotation;
-        bp2.AddComponent<Rigidbody>();
-        bp2.GetComponent<Rigidbody>().AddForce(new Vector3(5, 5, 5), ForceMode.Impulse);
-
-        bp2.AddComponent<BoxCollider>();
-        bp2.AddComponent<XRGrabInteractable>();
-        //bp2.tag = "";
-
-
-
-        GameObject kinder = new GameObject();
-        kinder.transform.parent = bp2.transform;
-        kinder.transform.localPosition = new Vector3(0, 0, 0);
-
-        kinder.transform.localPosition = new Vector3(0, -0.3f, 0);
-
-        XRGrabInteractable grabbygrab = bp2.GetComponent<XRGrabInteractable>();
-        grabbygrab.attachTransform = kinder.transform;
-
-        //ParticleSystem ketwo = Instantiate(ketchup);
-        //ketwo.transform.parent = kinder.transform;
-        //ketwo.transform.localPosition = new Vector3(0, 0, 0);
-        //ketwo.Play();
-
-        Destroy(bp);
-
-    }
 
 }
