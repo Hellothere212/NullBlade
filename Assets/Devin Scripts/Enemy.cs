@@ -6,10 +6,12 @@ public class Enemy : MonoBehaviour
 {
     // Transform references for player and enemy positioning
     Transform Player;
+    Transform ScanPoint;
+
     Transform enemy;
 
     // Movement and detection settings
-    public int movementSpeed;           // How fast the enemy moves toward player
+    int movementSpeed = 3;           // How fast the enemy moves toward player
     public float detectionRadius;       // How far the enemy can "see" 
     public int numRays;                 // Number of detection rays cast in a semicircle
 
@@ -29,6 +31,8 @@ public class Enemy : MonoBehaviour
 
     public Material scannerMaterial;
 
+    public float angleOffset; // degrees to offset the entire fan, e.g. 15 degrees to the right
+
     public float lineHeight; // adjust in Inspector
 
     // Start is called before the first frame update
@@ -36,7 +40,8 @@ public class Enemy : MonoBehaviour
     {
         // Find and cache the player GameObject by tag
         Player = GameObject.FindWithTag("Player").transform;
-        enemy = transform; // Cache this enemy's transform
+        ScanPoint = transform; // Cache this enemy's transform
+        enemy = ScanPoint;
 
         //setting up scanner
         scanner.positionCount = 0;
@@ -51,13 +56,8 @@ public class Enemy : MonoBehaviour
     {
         float angleIncrement = detectionAngle / (numRays - 1); // Changed to (numRays - 1) for even distribution
 
-        // Use the same origin point for visualization and physics so the cone is straight
-        //        Vector3 origin = transform.position + Vector3.up * 1;
-        //
-        //        // Calculate distance between enemy and player from the same origin
-        //        double disbetwP = Vector3.Distance(origin, Player.position);
         // Use the enemy's local up so the cone follows enemy orientation (handles tilted enemies)
-        Vector3 origin = enemy.position + enemy.up * lineHeight;
+        Vector3 origin = ScanPoint.position + ScanPoint.up * lineHeight;
 
         // Calculate distance between enemy and player from the same origin
         double disbetwP = Vector3.Distance(origin, Player.position);
@@ -97,6 +97,11 @@ public class Enemy : MonoBehaviour
                         Debug.Log("PATH BLOCKED - Cannot move to player");
                         isAnima(anima, false); // Stop movement animation
                     }
+                    else if (disbetwP <= PlayerBubble)
+                    {
+                        Debug.Log("TOO CLOSE TO PLAYER - stopping movement");
+                        isAnima(anima, false); // Stop movement animation
+                    }
                     // Check if we have clear line of sight AND maintain minimum distance
                     else if (Physics.Linecast(origin, targetPosition, raycastMask) && disbetwP > PlayerBubble)
                     {
@@ -106,7 +111,7 @@ public class Enemy : MonoBehaviour
                         isSee = true;
 
                         // Move toward player at specified speed
-                        Vector3 newPosition = this.gameObject.transform.parent.TransformPoint(Vector3.MoveTowards(enemy.position, targetPosition, movementSpeed * Time.deltaTime));
+                        Vector3 newPosition = Vector3.MoveTowards(enemy.position, targetPosition, movementSpeed * Time.deltaTime);
                         enemy.position = newPosition;
                     }
                     else
@@ -129,8 +134,8 @@ public class Enemy : MonoBehaviour
             }
         }
         // Duplicate the origin at the final index to close the LineRenderer fan
-
-        scanner.SetPosition(numRays + 1, origin);
+        Vector3 straightray = Quaternion.AngleAxis(angleOffset, Vector3.zero) * origin;
+        scanner.SetPosition(numRays + 1, straightray);
     }
 
 
@@ -142,4 +147,5 @@ public class Enemy : MonoBehaviour
             anim.SetBool("IsSeeSee", tf); // Toggle movement animation parameter
         }
     }
+    
 }
